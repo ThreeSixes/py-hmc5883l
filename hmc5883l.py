@@ -327,7 +327,7 @@ class hmc5883l:
         """
         
         # Make sure we're trying to write to a R/W register
-        if (register <= self.regCfgA) and (register <= self.regMode):
+        if (register >= self.regCfgA) and (register <= self.regMode):
             self.__writeReg(register, value)
         else:
             raise ValueError("HMC5883L register must be writable to set it.")
