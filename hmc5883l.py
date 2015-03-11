@@ -5,7 +5,6 @@
 ###########
 
 import quick2wire.i2c as qI2c
-from pprint import pprint
 
 ##################
 # hmc5883L class #
@@ -122,7 +121,7 @@ class hmc5883l:
             data = ord(res[0])
             
         except IOError:
-            print("hmc5883l IO Error: Failed to read HMC5883L sensor on I2C bus.")
+            raise IOError("hmc5883l IO Error: Failed to read HMC5883L sensor on I2C bus.")
             
         return data
     
@@ -138,15 +137,11 @@ class hmc5883l:
         # Figure out how many bytes we'll be reading.
         regCount = (regEnd - regStart) + 1
         
-        print(regCount)
-        
         # Read a range of registers.
         regRange = self.__i2cMaster.transaction(self.__i2c.writing_bytes(self.__addr, regStart), self.__i2c.reading(self.__addr, regCount))
         
         # Convert returned data to byte array.
         regRange = bytearray(regRange[0])
-        
-        pprint(regRange)
         
         return regRange
     
@@ -160,7 +155,7 @@ class hmc5883l:
         try:
             self.__i2cMaster.transaction(self.__i2c.writing_bytes(self.__addr, register, byte))
         except IOError:
-            print("hmc5883l IO Error: Failed to write to HMC5883L sensor on I2C bus.")
+            raise IOError("hmc5883l IO Error: Failed to write to HMC5883L sensor on I2C bus.")
 
     def __regMask(self, part):
         """
