@@ -4,8 +4,8 @@
 # Imports #
 ###########
 
-import smbus
-
+import quick2wire.i2c as qI2c
+from pprint import pprint
 
 ##################
 # hmc5883L class #
@@ -13,15 +13,18 @@ import smbus
 
 class hmc5883l:
     """
-    hmc5883l is a class that supports communication with an I2C-connected Honeywell HMC5883L 3-axis magenetometer/compass. The constructor for this class accepts two argements: The I2C bus ID the sensor is on which defaults to 1 and, the I2C address of the sensor, but will default to 0x1e if it's not specified.
+    hmc5883l is a class that supports communication with an I2C-connected Honeywell HMC5883L 3-axis magenetometer/compass. The constructor for this class accepts one argement:
+
+    hmc5883lAddr: The I2C address of the sensor, but will default to 0x1e if it's not specified.
     """
 
     # The magnetometer config variables are based on the HMC5883L datasheet
     # http://www51.honeywell.com/aero/common/documents/myaerospacecatalog-documents/Defense_Brochures-documents/HMC5883L_3-Axis_Digital_Compass_IC.pdf
 
-    def __init__(self, i2cBus = 1, hmc5883lAddr = 0x1e):
-        # Set up I2C / SMBus
-        self.i2c = smbus.SMBus(i2cBus)
+    def __init__(self, hmc5883lAddr = 0x1e):
+        # I2C set up class-wide I2C bus
+        self.__i2c = qI2c
+        self.__i2cMaster = qI2c.I2CMaster()
         
         # Set global address var
         self.__addr = hmc5883lAddr
@@ -115,10 +118,11 @@ class hmc5883l:
         
         try:
             # Read the specific register.
-            data = self.i2c.read_byte_data(self.__addr, register)
+            res = self.__i2cMaster.transaction(self.__i2c.writing_bytes(self.__addr, register), self.__i2c.reading(self.__addr, 1))
+            data = ord(res[0])
             
         except IOError:
-            print "hmc5883l IO Error: Failed to read HMC5883L sensor on I2C bus."
+            print("hmc5883l IO Error: Failed to read HMC5883L sensor on I2C bus.")
             
         return data
     
@@ -129,11 +133,20 @@ class hmc5883l:
         Reads a continuous range of registers from regStart to regEnd. Returns an array of integers.
         """
         
-        regRange = []
+        regRange = ""
         
-        # Read all specified registers, and append them to the return array.
-        for i in range(regStart, (regEnd + 1)):
-            regRange.append(self.__readReg(i))
+        # Figure out how many bytes we'll be reading.
+        regCount = (regEnd - regStart) + 1
+        
+        print(regCount)
+        
+        # Read a range of registers.
+        regRange = self.__i2cMaster.transaction(self.__i2c.writing_bytes(self.__addr, regStart), self.__i2c.reading(self.__addr, regCount))
+        
+        # Convert returned data to byte array.
+        regRange = bytearray(regRange[0])
+        
+        pprint(regRange)
         
         return regRange
     
@@ -145,9 +158,9 @@ class hmc5883l:
         """
         
         try:
-            self.i2c.write_byte_data(self.__addr, register, byte)
+            self.__i2cMaster.transaction(self.__i2c.writing_bytes(self.__addr, register, byte))
         except IOError:
-            print "hmc5883l IO Error: Failed to write to HMC5883L sensor on I2C bus."
+            print("hmc5883l IO Error: Failed to write to HMC5883L sensor on I2C bus.")
 
     def __regMask(self, part):
         """
@@ -162,13 +175,18 @@ class hmc5883l:
         """
         __getSigned(number)
         
-        Converts the reading from the magnetometer to a signed int. This is required because python doesn't see the AND'd values as a two's compliment signed binary number.
+        Converts the reading from the magnetometer to a signed int. This is required because python doesn't see the AND'd values as a two's compliment signed binary number. Also supports returning 4096 in the event an axis is saturated.
         """
         
         signednum = 0
         
-        if unsigned > 2047:
+        # If our axis is reporting saturated
+        if unsigned == 4096:
+            signednum = unsigned
+        # Else, keep going.
+        elif unsigned > 2047:
             signednum = unsigned - 65535
+        # No need to change sign number is already positive.
         else:
             signednum = unsigned
         
