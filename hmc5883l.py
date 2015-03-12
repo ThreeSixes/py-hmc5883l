@@ -1,4 +1,5 @@
 # hmc5883l class by ThreeSixes (https://github.com/ThreeSixes/py-hmc5883l)
+# This was originally part of the OpenWeatherStn project (https://github.com/ThreeSixes/OpenWeatherStn)
 
 ###########
 # Imports #
